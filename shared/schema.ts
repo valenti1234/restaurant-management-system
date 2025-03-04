@@ -206,6 +206,7 @@ export const tables = pgTable("tables", {
   width: integer("width").notNull().default(1), // Width in grid units
   height: integer("height").notNull().default(1), // Height in grid units
   isActive: boolean("is_active").notNull().default(true),
+  customerName: text("customer_name"),
 });
 
 export const insertTableSchema = createInsertSchema(tables).omit({

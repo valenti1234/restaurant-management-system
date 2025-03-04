@@ -45,7 +45,7 @@ export interface IStorage {
   getTable(id: number): Promise<Table | undefined>;
   createTable(table: InsertTable): Promise<Table>;
   updateTable(id: number, table: Partial<InsertTable>): Promise<Table>;
-  updateTableStatus(id: number, status: TableStatus): Promise<Table>;
+  updateTableStatus(id: number, status: TableStatus, customerName?: string | null): Promise<Table>;
   deleteTable(id: number): Promise<void>;
 }
 
@@ -483,10 +483,13 @@ export class DatabaseStorage implements IStorage {
     return updatedTable;
   }
 
-  async updateTableStatus(id: number, status: TableStatus): Promise<Table> {
+  async updateTableStatus(id: number, status: TableStatus, customerName?: string | null): Promise<Table> {
     const [updatedTable] = await db
       .update(tables)
-      .set({ status })
+      .set({ 
+        status,
+        customerName: customerName === null ? null : customerName || undefined
+      })
       .where(eq(tables.id, id))
       .returning();
 

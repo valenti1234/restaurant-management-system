@@ -226,94 +226,153 @@ export default function KitchenDisplay() {
           const isOverdue = order.estimatedReadyTime && new Date(order.estimatedReadyTime) < new Date();
 
           return (
-            <Card key={order.id} className={`p-6 space-y-4 ${order.priority === "urgent" ? "border-red-500" : ""}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold">Order #{order.id}</h3>
-                  <p className="text-sm text-muted-foreground">{order.orderType}</p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Badge variant="outline" className={statusBadgeVariants[order.status]}>
-                    {order.status}
-                  </Badge>
-                  <Badge variant="outline" className={priorityBadgeVariants[order.priority as OrderPriority]}>
-                    {order.priority}
-                  </Badge>
-                </div>
-              </div>
+            <Card 
+              key={order.id} 
+              className={`relative overflow-hidden ${
+                order.priority === "urgent" ? "border-red-500 ring-2 ring-red-500 ring-offset-2" : ""
+              }`}
+            >
+              {/* Status Banner */}
+              <div className={`absolute top-0 left-0 right-0 h-1.5 ${
+                statusBadgeVariants[order.status].split(" ")[0]
+              }`} />
 
-              <div className="space-y-2">
-                {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3">
-                    <div className="w-16 h-16">
-                      <img
-                        src={item.menuItem.imageUrl}
-                        alt={item.menuItem.name}
-                        className="w-full h-full object-cover rounded-md"
-                      />
+              <div className="p-6 space-y-6">
+                {/* Header Section */}
+                <div className="flex items-start justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold">Order #{order.id}</h3>
+                      <Badge variant="outline" className={priorityBadgeVariants[order.priority as OrderPriority]}>
+                        {order.priority}
+                      </Badge>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">
-                        {item.quantity}x {item.menuItem.name}
-                      </p>
-                      {item.specialInstructions && (
-                        <p className="text-sm text-muted-foreground">
-                          Note: {item.specialInstructions}
-                        </p>
+
+                    {/* Table and Customer Info */}
+                    <div className="space-y-2">
+                      {order.tableNumber && (
+                        <div className="inline-flex items-center px-3 py-1 rounded-lg bg-secondary">
+                          <span className="text-lg font-bold">Table {order.tableNumber}</span>
+                        </div>
+                      )}
+                      {order.customerName && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-base font-normal">
+                            Customer: {order.customerName}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Order Type and Time */}
+                    <div className="flex items-center gap-3 text-sm">
+                      <Badge variant="secondary">
+                        {order.orderType === "dine_in" ? "Dine In" : "Takeaway"}
+                      </Badge>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        {timeElapsed}
+                      </div>
+                      {isOverdue && (
+                        <div className="flex items-center gap-1 text-red-500">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Overdue</span>
+                        </div>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="flex flex-col gap-4 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    {timeElapsed}
-                  </div>
-                  {isOverdue && (
-                    <div className="flex items-center gap-2 text-red-500">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm">Overdue</span>
-                    </div>
-                  )}
+                  <Badge 
+                    variant="outline" 
+                    className={`text-base capitalize ${statusBadgeVariants[order.status]}`}
+                  >
+                    {order.status}
+                  </Badge>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Select
-                    defaultValue={order.priority}
-                    onValueChange={(value) =>
-                      updatePriorityMutation.mutate({ orderId: order.id, priority: value as OrderPriority })
-                    }
-                  >
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {orderPriorities.map((priority) => (
-                        <SelectItem key={priority} value={priority}>
-                          {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Items Section */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm text-muted-foreground">Order Items:</h4>
+                  <div className="grid gap-3">
+                    {order.items.map((item) => (
+                      <div 
+                        key={item.id} 
+                        className="flex items-start gap-3 bg-muted/50 p-3 rounded-lg border border-muted-foreground/10"
+                      >
+                        <div className="w-16 h-16 flex-shrink-0">
+                          <img
+                            src={item.menuItem.imageUrl}
+                            alt={item.menuItem.name}
+                            className="w-full h-full object-cover rounded-md"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium">
+                                {item.quantity}x {item.menuItem.name}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.menuItem.category}
+                              </p>
+                            </div>
+                            {item.specialInstructions && (
+                              <Badge 
+                                variant="outline" 
+                                className="bg-yellow-50 text-yellow-700 border-yellow-200 whitespace-nowrap"
+                              >
+                                Special Instructions
+                              </Badge>
+                            )}
+                          </div>
+                          {item.specialInstructions && (
+                            <div className="mt-2 p-2 rounded bg-yellow-50/50 border border-yellow-200 text-sm">
+                              {item.specialInstructions}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
+                {/* Actions Section */}
+                <div className="flex items-center justify-between pt-4 border-t">
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Minutes"
-                      className="w-20"
-                      min={1}
-                      defaultValue={15}
-                      onChange={(e) =>
-                        updateEstimatedTimeMutation.mutate({
-                          orderId: order.id,
-                          minutes: parseInt(e.target.value) || 15,
-                        })
+                    <Select
+                      defaultValue={order.priority}
+                      onValueChange={(value) =>
+                        updatePriorityMutation.mutate({ orderId: order.id, priority: value as OrderPriority })
                       }
-                    />
-                    <span className="text-sm text-muted-foreground">min</span>
+                    >
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orderPriorities.map((priority) => (
+                          <SelectItem key={priority} value={priority}>
+                            {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Minutes"
+                        className="w-20"
+                        min={1}
+                        defaultValue={15}
+                        onChange={(e) =>
+                          updateEstimatedTimeMutation.mutate({
+                            orderId: order.id,
+                            minutes: parseInt(e.target.value) || 15,
+                          })
+                        }
+                      />
+                      <span className="text-sm text-muted-foreground">min</span>
+                    </div>
                   </div>
 
                   {nextStatus && (

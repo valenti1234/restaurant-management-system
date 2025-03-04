@@ -517,7 +517,7 @@ export async function registerRoutes(app: Express) {
       return res.status(400).json({ message: "Invalid table ID" });
     }
 
-    const { status } = req.body;
+    const { status, customerName } = req.body;
     if (!status || !tableStatuses.includes(status)) {
       return res.status(400).json({
         message: "Invalid table status",
@@ -526,7 +526,7 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      const table = await storage.updateTableStatus(id, status);
+      const table = await storage.updateTableStatus(id, status, customerName);
       res.json(table);
     } catch (error: any) {
       res.status(error.message === "Table not found" ? 404 : 500).json({

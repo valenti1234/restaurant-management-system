@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTableSchema, tableShapes, type Table } from "@shared/schema";
+import { insertTableSchema, tableShapes, tableStatuses, type Table, type TableStatus } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { Trash2, Plus } from "lucide-react";
 import type { z } from "zod";
@@ -42,6 +42,46 @@ export function TableMap() {
   const { data: tables = [] } = useQuery<Table[]>({
     queryKey: ["/api/tables"],
     retry: false,
+  });
+
+  const deleteTableMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/tables/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      toast({
+        title: "Success",
+        description: "Table deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete table",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTableStatusMutation = useMutation({
+    mutationFn: async ({ id, status, customerName }: { id: number; status: TableStatus; customerName?: string | null }) => {
+      await apiRequest("PATCH", `/api/tables/${id}/status`, { status, customerName });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      toast({
+        title: "Success",
+        description: "Table status updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update table status",
+        variant: "destructive",
+      });
+    },
   });
 
   // Grid size for the table map
@@ -316,12 +356,47 @@ export function TableMap() {
               <div className="text-sm text-muted-foreground mt-1">
                 Capacity: {table.capacity}
               </div>
+              {table.customerName && table.status === 'occupied' && (
+                <div className="text-sm font-medium text-blue-600 mt-1">
+                  Customer: {table.customerName}
+                </div>
+              )}
               <div className={`text-sm mt-1 font-medium ${
                 table.status === 'occupied' ? 'text-red-600' :
                 table.status === 'reserved' ? 'text-yellow-600' :
                 'text-green-600'
               }`}>
                 {table.status.charAt(0).toUpperCase() + table.status.slice(1)}
+              </div>
+              <div className="mt-4">
+                <select
+                  className="w-full p-2 border rounded-md bg-background"
+                  value={table.status}
+                  onChange={async (e) => {
+                    const newStatus = e.target.value as TableStatus;
+                    let customerName = undefined;
+                    
+                    if (newStatus === 'occupied' && table.status !== 'occupied') {
+                      customerName = prompt('Enter customer name:');
+                      if (!customerName) return; // Cancel if no name entered
+                    } else if (newStatus !== 'occupied') {
+                      customerName = null; // Clear customer name when table becomes unoccupied
+                    }
+                    
+                    updateTableStatusMutation.mutate({
+                      id: table.id,
+                      status: newStatus,
+                      customerName,
+                    });
+                  }}
+                  disabled={updateTableStatusMutation.isPending}
+                >
+                  {tableStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
