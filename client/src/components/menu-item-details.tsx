@@ -203,6 +203,21 @@ export function MenuItemDetails({ item, open, onClose }: MenuItemDetailsProps) {
               </div>
             )}
 
+            {/* Suggested Beverages */}
+            {item.suggestedBeverages && item.suggestedBeverages.length > 0 && item.category !== 'drinks' && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Suggested Beverages</h3>
+                <div className="space-y-2">
+                  {item.suggestedBeverages.map((beverage, index) => (
+                    <Badge key={index} variant="outline" className="mr-2">
+                      <FaGlassCheers className="h-4 w-4 mr-1" />
+                      {beverage}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Social Share */}
             <div>
               <h3 className="text-sm font-semibold mb-2">Share</h3>

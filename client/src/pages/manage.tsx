@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { formatPrice } from "@/lib/utils";
 import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -42,6 +43,26 @@ export default function Manage() {
       toast({
         title: "Error",
         description: "Failed to delete menu item",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleAvailabilityMutation = useMutation({
+    mutationFn: async ({ id, available }: { id: number; available: boolean }) => {
+      await apiRequest("PATCH", `/api/menu/${id}`, { available });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
+      toast({
+        title: "Success",
+        description: "Menu item availability updated",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update menu item availability",
         variant: "destructive",
       });
     },
@@ -85,9 +106,18 @@ export default function Manage() {
                 </div>
               </TableCell>
               <TableCell>
-                <Badge variant={item.available ? "default" : "destructive"}>
-                  {item.available ? "Available" : "Unavailable"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={item.available}
+                    onCheckedChange={(checked) => {
+                      toggleAvailabilityMutation.mutate({ id: item.id, available: checked });
+                    }}
+                    disabled={toggleAvailabilityMutation.isPending}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {item.available ? "Available" : "Unavailable"}
+                  </span>
+                </div>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">

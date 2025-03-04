@@ -3,6 +3,7 @@ import { type InsertMenuItem } from "@shared/schema";
 import * as fs from "fs/promises";
 import * as path from "path";
 import fetch from "node-fetch";
+import { log, logError } from "./vite";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -20,6 +21,73 @@ async function downloadImage(url: string, filename: string): Promise<string> {
 
   // Return the relative path that will be served by Express
   return `/uploads/${filename}`;
+}
+
+export async function generateSuggestedBeverages(foodName: string, category: string): Promise<string[]> {
+  log(`Generating suggested beverages for: ${foodName} in category: ${category}`, 'info', 'openai');
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a sommelier and beverage expert. For the given dish, suggest 2-3 beverages that would pair well with it. Consider both alcoholic and non-alcoholic options.
+
+Return ONLY a JSON object in this exact format:
+{
+  "beverages": [
+    "Red Bordeaux wine",
+    "Sparkling water with lime",
+    "Craft IPA beer"
+  ]
+}
+
+Each beverage must be a simple string, not an object. The array must contain 2-3 items.`
+        },
+        {
+          role: "user",
+          content: `Suggest beverages to pair with this ${category} dish: ${foodName}`
+        }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    log(`Raw OpenAI Response: ${response.choices[0].message.content}`, 'info', 'openai');
+    
+    const result = JSON.parse(response.choices[0].message.content ?? "{}");
+    log(`Parsed result: ${JSON.stringify(result)}`, 'info', 'openai');
+    
+    if (!result.beverages) {
+      logError("No beverages array in response:", result, 'openai');
+      return [];
+    }
+    
+    if (!Array.isArray(result.beverages)) {
+      logError("Beverages is not an array:", result.beverages, 'openai');
+      return [];
+    }
+    
+    // Ensure all items are strings and filter out any non-string values
+    const validBeverages = result.beverages
+      .filter((item: unknown): item is string => typeof item === 'string' && item.length > 0)
+      .map((item: string) => item.trim());
+
+    if (validBeverages.length === 0) {
+      logError("No valid beverage strings found:", result.beverages, 'openai');
+      return [];
+    }
+    
+    log(`Generated beverages: ${JSON.stringify(validBeverages)}`, 'info', 'openai');
+    return validBeverages;
+  } catch (error: any) {
+    console.error("Beverage generation error details:", {
+      error: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    logError("Beverage generation error:", error, 'openai');
+    return [];
+  }
 }
 
 export async function generateMenuItemDetails(foodName: string): Promise<InsertMenuItem> {
@@ -60,6 +128,7 @@ export async function generateMenuItemDetails(foodName: string): Promise<InsertM
 
     const ingredients = await generateIngredients(foodName);
     const nutritionalInfo = await generateNutritionalInfo(ingredients);
+    const suggestedBeverages = result.category !== 'drinks' ? await generateSuggestedBeverages(foodName, result.category) : [];
 
     return {
       name: foodName,
@@ -76,6 +145,7 @@ export async function generateMenuItemDetails(foodName: string): Promise<InsertM
       fat: nutritionalInfo.fat,
       servingSize: nutritionalInfo.servingSize,
       kitchenAreas: [],
+      suggestedBeverages: suggestedBeverages,
     };
   } catch (error: any) {
     throw new Error(`Failed to generate menu item details: ${error.message}`);

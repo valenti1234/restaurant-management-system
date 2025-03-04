@@ -5,7 +5,7 @@ import { Loader2, Clock, ChevronDown } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format, startOfDay, endOfDay, subDays } from "date-fns";
 import {
   Table,
   TableBody,
@@ -20,7 +20,30 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 const statusBadgeVariants: Record<OrderStatus, string> = {
   pending: "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20",
@@ -51,6 +74,7 @@ interface OrderWithItems extends Order {
 export default function OrderHistoryPage() {
   const { user } = useAuth();
   const [openOrders, setOpenOrders] = useState<Record<number, boolean>>({});
+  const [timeRange, setTimeRange] = useState<"7days" | "30days" | "all">("7days");
   const [, setLocation] = useLocation();
 
   const { data: orders, isLoading } = useQuery<OrderWithItems[]>({
@@ -81,7 +105,17 @@ export default function OrderHistoryPage() {
     );
   }
 
-  const ordersByStatus = (orders || []).reduce((acc, order) => {
+  const filterOrdersByDate = (orders: OrderWithItems[], days: number | null = null) => {
+    if (!days) return orders;
+    const cutoffDate = subDays(new Date(), days);
+    return orders.filter(order => new Date(order.createdAt) >= cutoffDate);
+  };
+
+  const filteredOrders = filterOrdersByDate(orders || [], 
+    timeRange === "7days" ? 7 : timeRange === "30days" ? 30 : null
+  );
+
+  const ordersByStatus = filteredOrders.reduce((acc, order) => {
     const status = order.status;
     if (!acc[status]) {
       acc[status] = [];
@@ -90,16 +124,120 @@ export default function OrderHistoryPage() {
     return acc;
   }, {} as Record<OrderStatus, OrderWithItems[]>);
 
+  // Calculate summary statistics
+  const summary = {
+    totalOrders: filteredOrders.length,
+    totalRevenue: filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+    averageOrderValue: filteredOrders.length > 0
+      ? filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0) / filteredOrders.length
+      : 0,
+    completedOrders: filteredOrders.filter(order => order.status === "completed").length,
+    cancelledOrders: filteredOrders.filter(order => order.status === "cancelled").length,
+  };
+
+  // Prepare chart data
+  const chartData = filteredOrders.reduce((acc, order) => {
+    const date = format(new Date(order.createdAt), "MMM d");
+    if (!acc[date]) {
+      acc[date] = {
+        date,
+        revenue: 0,
+        orders: 0,
+      };
+    }
+    acc[date].revenue += order.totalAmount;
+    acc[date].orders += 1;
+    return acc;
+  }, {} as Record<string, { date: string; revenue: number; orders: number }>);
+
+  const chartDataArray = Object.values(chartData);
+
   const historyStatuses = ["completed", "cancelled"] as const;
 
   return (
     <div className="space-y-8 p-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Order History</h1>
-        <Button variant="outline" onClick={() => setLocation("/admin/orders")}>
-          View Active Orders
-        </Button>
+        <div className="flex items-center gap-4">
+          <Select value={timeRange} onValueChange={(value: "7days" | "30days" | "all") => setTimeRange(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select time range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7days">Last 7 days</SelectItem>
+              <SelectItem value="30days">Last 30 days</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={() => setLocation("/admin/orders")}>
+            View Active Orders
+          </Button>
+        </div>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.totalOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              {summary.completedOrders} completed, {summary.cancelledOrders} cancelled
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatPrice(summary.totalRevenue)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Order Value</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatPrice(summary.averageOrderValue)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {summary.totalOrders > 0
+                ? Math.round((summary.completedOrders / summary.totalOrders) * 100)
+                : 0}%
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Revenue Overview</CardTitle>
+          <CardDescription>Daily revenue and order count</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartDataArray}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+                <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+                <Tooltip />
+                <Bar yAxisId="left" dataKey="revenue" fill="#8884d8" name="Revenue" />
+                <Bar yAxisId="right" dataKey="orders" fill="#82ca9d" name="Orders" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       {historyStatuses.map((status) => (
         <div key={status} className="rounded-lg border bg-card">

@@ -11,7 +11,7 @@ import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
-export function log(message: string, source = "express") {
+export function log(message: string, level: 'info' | 'error' = 'info', source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -19,8 +19,20 @@ export function log(message: string, source = "express") {
     hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+  const logFn = level === 'error' ? console.error : console.log;
+  logFn(`${formattedTime} [${source}] ${message}`);
 }
+
+export const logError = (message: string, error?: any, source = "express") => {
+  log(message, 'error', source);
+  if (error) {
+    if (error.stack) {
+      log(error.stack, 'error', source);
+    } else {
+      log(JSON.stringify(error), 'error', source);
+    }
+  }
+};
 
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {

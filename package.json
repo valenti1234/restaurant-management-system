@@ -10,7 +10,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push:pg",
     "db:generate": "drizzle-kit generate:pg",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "tsx server/migrate.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

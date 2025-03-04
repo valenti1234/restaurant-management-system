@@ -60,12 +60,13 @@ export const menuItems = pgTable("menu_items", {
   carbs: integer("carbs"), // in grams
   fat: integer("fat"), // in grams
   servingSize: text("serving_size"),
+  suggestedBeverages: text("suggested_beverages").array(),
 });
 
 export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   id: true
 }).extend({
-  price: z.number().min(0),
+  price: z.number().min(0).transform(price => Math.round(price * 100)), // Convert dollars to cents
   category: z.enum(categories),
   allergens: z.array(z.enum(allergens)),
   kitchenAreas: z.array(z.enum(kitchenAreas)).default([]),
@@ -75,6 +76,7 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   carbs: z.number().min(0).optional(),
   fat: z.number().min(0).optional(),
   servingSize: z.string().optional(),
+  suggestedBeverages: z.array(z.string()).optional(),
 });
 
 export const insertCrossContaminationRiskSchema = createInsertSchema(crossContaminationRisks).omit({
@@ -140,6 +142,9 @@ export const orderStatuses = [
 ] as const;
 export type OrderStatus = typeof orderStatuses[number];
 
+export const orderPriorities = ["low", "medium", "high", "urgent"] as const;
+export type OrderPriority = typeof orderPriorities[number];
+
 export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id").notNull(),
@@ -153,6 +158,7 @@ export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   orderType: text("order_type").$type<OrderType>().notNull(),
   status: text("status").$type<OrderStatus>().notNull().default("pending"),
+  priority: text("priority").$type<OrderPriority>().notNull().default("medium"),
   tableNumber: integer("table_number"), // Only for dine-in
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone"),
@@ -173,6 +179,7 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
   status: true,
+  priority: true,
 }).extend({
   orderType: z.enum(orderTypes),
   tableNumber: z.number().min(1).optional(),

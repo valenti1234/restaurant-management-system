@@ -31,13 +31,14 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Wand2, Image as ImageIcon, ListPlus, Calculator } from "lucide-react";
+import { Wand2, Image as ImageIcon, ListPlus, Calculator, Wine } from "lucide-react";
 
 export function AddMenuItem() {
   const [open, setOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingIngredients, setIsGeneratingIngredients] = useState(false);
   const [isGeneratingNutrition, setIsGeneratingNutrition] = useState(false);
+  const [isGeneratingBeverages, setIsGeneratingBeverages] = useState(false);
   const [imagePreviewError, setImagePreviewError] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -58,6 +59,7 @@ export function AddMenuItem() {
       carbs: 0,
       fat: 0,
       servingSize: "",
+      suggestedBeverages: [],
     },
   });
 
@@ -140,12 +142,36 @@ export function AddMenuItem() {
     },
   });
 
+  const generateBeveragesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/menu/generate-beverages", {
+        foodName: form.getValues("name"),
+        category: form.getValues("category"),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      form.setValue("suggestedBeverages", data.beverages);
+      toast({
+        title: "Generated",
+        description: "Beverage suggestions generated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate beverage suggestions",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsGeneratingBeverages(false);
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: InsertMenuItem) => {
-      const res = await apiRequest("POST", "/api/menu", {
-        ...data,
-        price: Math.round(data.price * 100),
-      });
+      const res = await apiRequest("POST", "/api/menu", data);
       return res.json();
     },
     onSuccess: () => {
@@ -168,7 +194,12 @@ export function AddMenuItem() {
   });
 
   const onSubmit = (data: InsertMenuItem) => {
-    createMutation.mutate(data);
+    // Multiply price by 100 to convert from dollars to cents
+    const submissionData = {
+      ...data,
+      price: Math.round(data.price * 100)
+    };
+    createMutation.mutate(submissionData);
   };
 
   const handleGenerate = async () => {
@@ -182,6 +213,22 @@ export function AddMenuItem() {
       return;
     }
     setIsGenerating(true);
+    form.reset({
+      name: foodName,
+      description: "",
+      price: 0,
+      category: "mains",
+      allergens: [],
+      imageUrl: "",
+      available: true,
+      ingredients: [],
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      servingSize: "",
+      suggestedBeverages: [],
+    });
     generateMutation.mutate(foodName);
   };
 
@@ -213,12 +260,46 @@ export function AddMenuItem() {
     generateNutritionMutation.mutate(ingredients);
   };
 
+  const handleGenerateBeverages = () => {
+    const category = form.getValues("category");
+    if (category === "drinks") {
+      toast({
+        title: "Info",
+        description: "Cannot generate beverage suggestions for drink items",
+      });
+      return;
+    }
+    setIsGeneratingBeverages(true);
+    generateBeveragesMutation.mutate();
+  };
+
   const handleImageError = () => {
     setImagePreviewError(true);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) {
+        form.reset({
+          name: "",
+          description: "",
+          price: 0,
+          category: "mains",
+          allergens: [],
+          imageUrl: "",
+          available: true,
+          ingredients: [],
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          servingSize: "",
+          suggestedBeverages: [],
+        });
+        setImagePreviewError(false);
+      }
+    }}>
       <DialogTrigger asChild>
         <Button>Add Menu Item</Button>
       </DialogTrigger>
@@ -408,6 +489,39 @@ export function AddMenuItem() {
                         onChange={(e) => field.onChange(e.target.value.split('\n').filter(Boolean))}
                         placeholder="Enter ingredients (one per line)"
                         className="h-32"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="space-y-4 border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">Suggested Beverages</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateBeverages}
+                  disabled={isGeneratingBeverages || form.getValues("category") === "drinks"}
+                >
+                  <Wine className="w-4 h-4 mr-2" />
+                  {isGeneratingBeverages ? "Generating..." : "Generate Beverages"}
+                </Button>
+              </div>
+              <FormField
+                control={form.control}
+                name="suggestedBeverages"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        value={field.value?.join('\n')}
+                        onChange={(e) => field.onChange(e.target.value.split('\n').filter(Boolean))}
+                        placeholder="Enter suggested beverages (one per line)"
+                        className="h-20"
                       />
                     </FormControl>
                     <FormMessage />

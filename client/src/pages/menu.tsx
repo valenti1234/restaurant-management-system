@@ -24,6 +24,9 @@ export default function Menu() {
 
   const filterItems = (items: MenuItem[] = []) => {
     return items.filter(item => {
+      // Only show available items
+      if (!item.available) return false;
+      
       const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
       const noAllergensSelected = selectedAllergens.length === 0;
       const hasNoSelectedAllergens = selectedAllergens.every(

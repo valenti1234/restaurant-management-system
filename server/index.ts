@@ -14,6 +14,15 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+
+  // Log request details for API routes
+  if (path.startsWith("/api")) {
+    log(`REQUEST ${req.method} ${path}`);
+    if (Object.keys(req.body).length > 0) {
+      log(`REQUEST BODY: ${JSON.stringify(req.body)}`);
+    }
+  }
+
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
@@ -25,16 +34,10 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      log(`RESPONSE ${req.method} ${path} ${res.statusCode} in ${duration}ms`);
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        log(`RESPONSE BODY: ${JSON.stringify(capturedJsonResponse)}`);
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
     }
   });
 

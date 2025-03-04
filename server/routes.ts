@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
 import { insertMenuItemSchema, insertCrossContaminationRiskSchema, insertUserSchema, insertReviewSchema, orderStatuses, insertCustomerSchema } from "@shared/schema";
-import { generateMenuItemDetails, generateIngredients, generateNutritionalInfo } from "./openai";
+import { generateMenuItemDetails, generateIngredients, generateNutritionalInfo, generateSuggestedBeverages } from "./openai";
 import { setupAuth, requireAuth, requireRole } from "./auth";
 import passport from "passport";
 import { insertOrderSchema } from "@shared/schema";
@@ -134,6 +134,19 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/menu/generate-beverages", requireAuth, async (req, res) => {
+    const { foodName } = req.body;
+    if (!foodName) {
+      return res.status(400).json({ message: "Food name is required" });
+    }
+    try {
+      const beverages = await generateSuggestedBeverages(foodName);
+      res.json({ beverages });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/menu/generate-nutrition", requireAuth, async (req, res) => {
     const { ingredients } = req.body;
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
@@ -248,6 +261,48 @@ export async function registerRoutes(app: Express) {
     } catch (error: any) {
       res.status(500).json({
         message: error.message || "Failed to create order"
+      });
+    }
+  });
+
+  app.patch("/api/orders/:id/priority", requireAuth, async (req, res) => {
+    const { priority } = req.body;
+    const orderId = parseInt(req.params.id);
+
+    if (!priority || !["low", "medium", "high", "urgent"].includes(priority)) {
+      return res.status(400).json({
+        message: "Invalid priority value",
+        error: "Priority must be one of: low, medium, high, urgent"
+      });
+    }
+
+    try {
+      const order = await storage.updateOrder(orderId, { priority });
+      res.json(order);
+    } catch (error: any) {
+      res.status(500).json({
+        message: error.message || "Failed to update order priority"
+      });
+    }
+  });
+
+  app.patch("/api/orders/:id/estimated-time", requireAuth, async (req, res) => {
+    const { estimatedReadyTime } = req.body;
+    const orderId = parseInt(req.params.id);
+
+    if (!estimatedReadyTime) {
+      return res.status(400).json({
+        message: "Invalid estimated ready time",
+        error: "Estimated ready time is required"
+      });
+    }
+
+    try {
+      const order = await storage.updateOrder(orderId, { estimatedReadyTime });
+      res.json(order);
+    } catch (error: any) {
+      res.status(500).json({
+        message: error.message || "Failed to update estimated ready time"
       });
     }
   });

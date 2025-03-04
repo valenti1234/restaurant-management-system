@@ -46,7 +46,7 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <p className="text-muted-foreground text-sm mb-2 line-clamp-2">{item.description}</p>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 mb-2">
               {item.allergens.map((allergen) => (
                 <Badge key={allergen} variant="secondary" className="flex items-center gap-1 text-xs py-0">
                   {allergenIcons[allergen]}
@@ -54,6 +54,19 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
                 </Badge>
               ))}
             </div>
+            {item.suggestedBeverages && item.suggestedBeverages.length > 0 && item.category !== 'drinks' && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground mb-1">Suggested Beverages:</p>
+                <div className="flex flex-wrap gap-1">
+                  {item.suggestedBeverages.map((beverage, index) => (
+                    <Badge key={index} variant="outline" className="text-xs py-0">
+                      <FaGlassCheers className="h-3 w-3 mr-1" />
+                      {beverage}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             {item.allergens.length > 0 && (
               <ContaminationWarning
                 menuItemId={item.id}

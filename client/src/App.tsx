@@ -18,6 +18,7 @@ import { Cart } from "@/components/cart";
 import { ShoppingCart } from "lucide-react";
 import OrderDetails from "@/pages/order-details";
 import { TablesPage } from "@/pages/tables";
+import KitchenDisplay from "@/pages/kitchen-display";
 
 function Navigation() {
   const { user, logoutMutation } = useAuth();
@@ -51,6 +52,11 @@ function Navigation() {
                   <a href="/admin/orders" className="hover:text-accent-foreground">
                     Orders
                   </a>
+                  {["manager", "chef", "kitchen_staff"].includes(user.role) && (
+                    <a href="/admin/kitchen" className="hover:text-accent-foreground">
+                      Kitchen Display
+                    </a>
+                  )}
                   {["manager", "server"].includes(user.role) && (
                     <a href="/admin/tables" className="hover:text-accent-foreground">
                       Tables
@@ -96,6 +102,7 @@ function AdminRoutes() {
       <Route path="/admin/order-history" component={OrderHistory} />
       <Route path="/admin/orders/:id" component={OrderDetails} />
       <Route path="/admin/tables" component={TablesPage} />
+      <Route path="/admin/kitchen" component={KitchenDisplay} />
       <Route component={NotFound} />
     </Switch>
   );
